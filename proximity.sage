@@ -263,10 +263,10 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False):
 
     best_z_N = max(z_N_list, key=lambda x: max(A_B_inv_A_N * x))
     delta = max(A_B_inv_A_N * best_z_N)
-    if verbose:
-        print(best_z_N)
-        print(f'Zero Step: delta for A_B_inv_b is {A_B_inv_A_N * best_z_N}')
-        print(z_N_list)
+#     if verbose:
+#         print(best_z_N)
+#         print(f'Zero Step: delta for A_B_inv_b is {A_B_inv_A_N * best_z_N}')
+#         print(z_N_list)
 
     # Iterative process of One-Steps from 1 to m
     for t in range(1, m + 1):
@@ -291,7 +291,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False):
         if not z_N_list_new:
             continue
         best_z_N = max(z_N_list_new, key=lambda x: max(A_B_inv_A_N * x))
-        delta = max(delta, A_B_inv_A_N * best_z_N)
+        delta = max(delta, max(A_B_inv_A_N * best_z_N))
         if verbose:
             print('New solutions found')
             print(z_N_list_new)
@@ -304,28 +304,38 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False):
     else:
         return (best_z_N, best_norm)
 
-def Proximity_Given_Matrix(A, Delta=None):
-    big_z_N_list = dict()
+def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False):
+    if dictionary:
+        big_z_N_list = dict()
     count = 0
     Basis_list = Basis_Extraction_Given_Matrix(A)
     total_basis_num = len(Basis_list)
+    max_norm = 0
     for B in Basis_list:
         count = count + 1
         A_B = A.matrix_from_columns(B)
         if abs(A_B.det()) == 1 or A.ncols() == A.nrows():
             print("Basis #{} out of {} with proximity 0".format(count, total_basis_num))
-            big_z_N_list[B] = (zero_vector(A.ncols() - A.nrows()), 0)
+            if dictionary:
+                big_z_N_list[B] = (zero_vector(A.ncols() - A.nrows()), 0)
             continue
         else:
-            z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=False)
+            z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=verbose)
             print("Basis #{} out of {} with proximity {}".format(count, total_basis_num, z_N_norm))
-            big_z_N_list[B] = (z_N_list, z_N_norm)
+            if dictionary:
+                big_z_N_list[B] = (z_N_list, z_N_norm)
+            else:
+                if z_N_norm > max_norm:
+                    max_norm = z_N_norm
 
-    best_z_N, best_norm = max(big_z_N_list.values(), key=lambda x: x[1])
+    if dictionary:
+        best_z_N, best_norm = max(big_z_N_list.values(), key=lambda x: x[1])
+        return best_z_N, best_norm
+    else:
+        best_norm = max_norm
+        return best_norm
 
-    return best_z_N, best_norm
-
-def Proximity_Given_Dim_and_Delta(m, Delta):
+def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False):
     prox = 0
     count = 0
     result = lattice_polytopes_with_given_dimension_and_delta(m, Delta, False)
@@ -334,7 +344,7 @@ def Proximity_Given_Dim_and_Delta(m, Delta):
         A = matrix(ZZ, [v for v in P.integral_points() if v.norm(1) > 0 and next((x for x in v if x != 0), None) > 0])
         A = A.transpose()
         count = count + 1
-        _, A_prox = Proximity_Given_Matrix(A, Delta)
+        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose)
         print("Matrix #{} of {} with proximity bound {}".format(count, total_num, A_prox))
         if A_prox >= prox:
             prox = A_prox
