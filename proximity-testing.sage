@@ -92,13 +92,12 @@ def clean_dim_and_delta_matrices(m, Delta):
 
 def full_dim_and_delta_matrices_database(m,Delta):
     MaxDeltaMatrices = clean_dim_and_delta_matrices(m,Delta)
-    S = Subsets([1..m], submultiset=True).list()
-    for A in MaxDeltaMatrices:
-        for B in S:
-            if Delta_modularity(A_B) = Delta
-                A_B = A.matrix_from_columns(B)
-                with open(FILE_NAME_DELTA_FULL % (m,Delta),'w') as f:
-                    print(A_B.rows(), file=f)
+    with open(FILE_NAME_DELTA_FULL % (m,Delta),'w') as f:
+        for A in MaxDeltaMatrices:
+            print(A.rows(), file=f)
+            DeltaSubmatrices = collect_Delta_submatrices(A, Delta)                                
+            for B in DeltaSubmatrices:       
+                print(B.rows(), file=f)
     return None
 
 def full_dim_and_delta_matrices(m,Delta):
