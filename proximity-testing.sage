@@ -22,7 +22,31 @@ def polytopes_matrix_extraction_given_dimension_and_delta(m,Delta):
             AP = matrix(eval(f_lines[n]))
             L.append(AP)
     return(L)
-    
+
+def collect_Delta_submatrices(A, Delta=None):
+    """
+    This function returns all the submatrices of a given matrix A with the same row rank and
+    Delta modularity. 
+
+    Draft: Currently brute forces to get every single submatrix.
+    """
+    if A.ncols() <= A.nrows():
+        A = A.transpose()
+
+    m = A.nrows()
+    n = A.ncols()
+    if not Delta:
+        Delta = Delta_modularity(A)
+
+    S = Subsets([0..n-1], submultiset = True).list()
+    Delta_submatrices = []
+    for B in S:
+        A_B = A.matrix_from_columns(B)
+        if Delta_modularity(A_B) = Delta:
+            Delta_submatrices.append(A_B)
+
+    return Delta_submatrices
+
 def clean_matrix(matrix):
     """
     This takes a matrix (intended for the matrices of given dimension and Delta), 
@@ -35,9 +59,7 @@ def clean_matrix(matrix):
     
     for i in range(new_matrix.nrows()):
         for j in range(new_matrix.ncols()):
-            if new_matrix[i] == I[j]:
-                eliminate.append(i)
-            elif new_matrix[i] == O[j]:
+            if new_matrix[i] == O[j]:
                 eliminate.append(i)
     
     return(new_matrix.delete_rows(eliminate))
@@ -67,6 +89,27 @@ def clean_dim_and_delta_matrices(m, Delta):
             CAP = matrix(eval(f_lines[n]))
             L.append(CAP)
     return(L)
+
+def full_dim_and_delta_matrices_database(m,Delta):
+    MaxDeltaMatrices = clean_dim_and_delta_matrices(m,Delta)
+    S = Subsets([1..m], submultiset=True).list()
+    for A in MaxDeltaMatrices:
+        for B in S:
+            if Delta_modularity(A_B) = Delta
+                A_B = A.matrix_from_columns(B)
+                with open(FILE_NAME_DELTA_FULL % (m,Delta),'w') as f:
+                    print(A_B.rows(), file=f)
+    return None
+
+def full_dim_and_delta_matrices(m,Delta):
+    full_dim_and_delta_matrices_database(m,Delta)
+    L = []
+    with open(FILE_NAME_DELTA_FULL % (m,Delta), 'r') as f:
+        f_lines = f.read.splitlines()
+        for i in range(len(f_lines)):
+            X = matrix(eval(f_lines[i]))
+            L.append(X)
+    return L
             
 def IP_and_LP_Given_Matrix_and_Constraints(A, b1, b2, d1, d2, c):
     """
