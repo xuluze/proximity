@@ -20,6 +20,12 @@ def Extend_Polytope_To_Full_Dimension(P):
 
     return P_new
 
+def Delta_modularity(A):
+    if A.ncols() <= A.nrows():
+        A = A.transpose()
+
+    return max(abs(x) for x in A.minors(A.nrows()))
+
 def Basis_Extraction_Given_Matrix(A):
     """
     Given a matrix A, this function determines all of the maximal-sized invertible
