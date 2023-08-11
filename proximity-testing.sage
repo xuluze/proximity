@@ -19,33 +19,10 @@ def polytopes_matrix_extraction_given_dimension_and_delta(m,Delta):
     with open(FILE_NAME_DELTA % (m,Delta),'r') as f:
         f_lines = f.read().splitlines() 
         for n in range(len(f_lines)):
-            AP = matrix(eval(f_lines[n]))
+            P = Polyhedron(vertices = eval(f_lines[n]), backend = 'normaliz') 
+            AP = matrix(P.integral_points())
             L.append(AP)
     return(L)
-
-def collect_Delta_submatrices(A, Delta=None):
-    """
-    This function returns all the submatrices of a given matrix A with the same row rank and
-    Delta modularity. 
-
-    Draft: Currently brute forces to get every single submatrix.
-    """
-    if A.ncols() <= A.nrows():
-        A = A.transpose()
-
-    m = A.nrows()
-    n = A.ncols()
-    if not Delta:
-        Delta = Delta_modularity(A)
-
-    S = Subsets([0..n-1], submultiset = True).list()
-    Delta_submatrices = []
-    for B in S:
-        A_B = A.matrix_from_columns(B)
-        if Delta_modularity(A_B) = Delta:
-            Delta_submatrices.append(A_B)
-
-    return Delta_submatrices
 
 def clean_matrix(matrix):
     """
@@ -89,6 +66,30 @@ def clean_dim_and_delta_matrices(m, Delta):
             CAP = matrix(eval(f_lines[n]))
             L.append(CAP)
     return(L)
+
+def collect_Delta_submatrices(A, Delta=None):
+    """
+    This function returns all the submatrices of a given matrix A with the same row rank and
+    Delta modularity. 
+
+    Draft: Currently brute forces to get every single submatrix.
+    """
+    if A.ncols() <= A.nrows():
+        A = A.transpose()
+
+    m = A.nrows()
+    n = A.ncols()
+    if not Delta:
+        Delta = Delta_modularity(A)
+
+    S = Subsets([0..n-1], submultiset = True).list()
+    DeltaSubmatrices = []
+    for B in S:
+        A_B = A.matrix_from_columns(B)
+        if Delta_modularity(A_B) = Delta:
+            DeltaSubmatrices.append(A_B)
+
+    return DeltaSubmatrices
 
 def full_dim_and_delta_matrices_database(m,Delta):
     MaxDeltaMatrices = clean_dim_and_delta_matrices(m,Delta)
