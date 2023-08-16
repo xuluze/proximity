@@ -72,25 +72,63 @@ def proximity_norm(z_N, A_B_inv_A_N):
     return max([z_N.norm(Infinity), (A_B_inv_A_N*z_N).norm(Infinity)])
 
 def Polytope_given_B1_b(A_B_inv_A_N, s, A_B_inv_b, bound_N=None):
-    """
+    r"""
     This function creates the polytope P(A_B_inv_A_N, s, A_B_inv_b) corr. to
     I_m * x_B + A_B_inv_A_N x_N = A_B_inv_b, x_N >= 0, x_{B(s)} >=0, with potentially x_N <= bound_N
+
+    Return the same polyhedron as Polytope_given_B1_b_A
+
+    EXAMPLES::
+
+        sage: A = matrix(ZZ,[[0,1,1,1,2,2,2,3],[1,0,1,2,2,3,4,4]])
+        sage: B = [5,6]
+        sage: b = vector((1,2))
+        sage: P1 = Polytope_given_B1_b_A(A, B, [], b, bound_N=vector([3,3,3,3,3,3]))
+        sage: A_B = A.matrix_from_columns(B)
+        sage: A_N = A.matrix_from_columns(i for i in range(A.ncols()) if i not in B)
+        sage: P2 = Polytope_given_B1_b(A_B.inverse()*A_N, [], A_B.inverse()*b, bound_N=vector([3,3,3,3,3,3]))
+        sage: P1 == P2
+        True
+
     """
     m = A_B_inv_A_N.nrows()
-    N = A_B_inv_A_N.ncols() # N = n - m
-    I_m = matrix.identity(m)
-    I_n = matrix.identity(m + N)
+    N_size = A_B_inv_A_N.ncols() # N_size = n - m
+    n = m + N_size
 
-    Ineqs = [(0,) + tuple(I_n[m + i]) for i in range(N)]
+    Ineqs = [(0,) + tuple(1 if j == m + i else 0 for j in range(n)) for i in range(N_size)]
     if bound_N:
         if isinstance(bound_N, sage.modules.vector_integer_dense.Vector_integer_dense):
-            Ineqs = Ineqs + [(bound_N[i],) + tuple(-I_n[m + i]) for i in range(N)]
+            Ineqs = Ineqs + [(bound_N[i],) + tuple(-1 if j == m + i else 0 for j in range(n)) for i in range(N_size)]
         else:
-            Ineqs = Ineqs + [(bound_N,) + tuple(-I_n[m + i]) for i in range(N)]
-    if not s:
-        Ineqs = [(0,) + tuple(I_n[i]) for i in s] + Ineqs
+            Ineqs = Ineqs + [(bound_N,) + tuple(-1 if j == m + i else 0 for j in range(n)) for i in range(N_size)]
+    if s:
+        Ineqs = [(0,) + tuple(1 if j == i else 0 for j in range(n)) for i in s] + Ineqs
 
-    Equals = [(-A_B_inv_b[i],) + tuple(I_m[i]) + tuple(A_B_inv_A_N[i]) for i in range(m)]
+    Equals = [(-A_B_inv_b[i],) + tuple(1 if j == i else 0 for j in range(m)) + tuple(A_B_inv_A_N[i]) for i in range(m)]
+    return Polyhedron(ieqs = Ineqs, eqns = Equals, base_ring=QQ, backend='normaliz')
+
+def Polytope_given_B1_b_A(A, B, s, b, bound_N=None):
+    """
+    This function creates the polytope P(A_B_inv_A_N, s, A_B_inv_b) corr. to
+    A_B * x_B + A_N x_N = b, x_N >= 0, x_{B(s)} >=0, with potentially x_N <= bound_N
+    """
+    m = A.nrows()
+    n = A.ncols()
+    N_size = n - m
+
+    A_B = A.matrix_from_columns(B)
+    A_N = A.matrix_from_columns(frozenset(range(n)).difference(B))
+
+    Ineqs = [(0,) + tuple(1 if j == m + i else 0 for j in range(n)) for i in range(N_size)]
+    if bound_N:
+        if isinstance(bound_N, sage.modules.vector_integer_dense.Vector_integer_dense):
+            Ineqs = Ineqs + [(bound_N[i],) + tuple(-1 if j == m + i else 0 for j in range(n)) for i in range(N_size)]
+        else:
+            Ineqs = Ineqs + [(bound_N,) + tuple(-1 if j == m + i else 0 for j in range(n)) for i in range(N_size)]
+    if s:
+        Ineqs = [(0,) + tuple(1 if j == i else 0 for j in range(n)) for i in s] + Ineqs
+
+    Equals = [(-b[i],) + tuple(A_B[i]) + tuple(A_N[i]) for i in range(m)]
     return Polyhedron(ieqs = Ineqs, eqns = Equals, base_ring=QQ, backend='normaliz')
 
 def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False):
