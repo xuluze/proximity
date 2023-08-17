@@ -7,17 +7,35 @@ def ones_vector(size):
     """
     return vector([1 for i in range(size)])
 
+def orthogonal_decomp_given_matrix(v,M):
+    """
+    Computes the orthogonal decomposition of v = u + w,
+    where u is in RowSpace(M) and w is in Kernel(M^T).
+    """
+    proj_M = M*(M.transpose()*M).inverse()*M.transpose()
+    u = proj_M*v
+    w = v - u
+    return u,w
+
 def Extend_Polytope_To_Full_Dimension(P):
     """
     This function takes a polytope and adds width in the appropriate
     dimensions such that the resulting polytope is full dimensional.
     If a full dimensional polytope is entered, it is returned.
     """
-    L = P.inequalities_list() + [(eqns.b() + 1,) + tuple(eqns.A()) for eqns in P.equations()]\
-                              + [(- eqns.b() + 1,) + tuple(-eqns.A()) for eqns in P.equations()]
+    L = [(eqns.b() + 1,) + tuple(eqns.A()) for eqns in P.equations()] + [(-eqns.b() + 1,) + tuple(-eqns.A()) for eqns in P.equations()]
 
-    P_new = Polyhedron(ieqs = L, backend = 'normaliz')
+    M = []
+    A_eq = matrix(tuple(eqns.A()) for eqns in P.equations())
+    b = vector(eqns.b() for eqns in P.equations())
+    for ieqs in P.inequalities():
+        d = ieqs.b()
+        a_T = ieqs.A()
+        u,w = orthogonal_decomp_given_matrix(a_T,A_eq.transpose())
+        y = A_eq.solve_left(u)
+        M.append((d - y*b,) + tuple(w))
 
+    P_new = Polyhedron(ieqs = L + M, backend = 'normaliz')
     return P_new
 
 def Delta_modularity(A):
