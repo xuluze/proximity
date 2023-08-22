@@ -149,13 +149,33 @@ def Polytope_given_B1_b_A(A, B, s, b, bound_N=None):
     Equals = [(-b[i],) + tuple(A_B[i]) + tuple(A_N[i]) for i in range(m)]
     return Polyhedron(ieqs = Ineqs, eqns = Equals, base_ring=QQ, backend='normaliz')
 
+def Polyhedral_Cone_A(A):
+    """
+    This function creates the polytope Ax = 0, x>=0
+    """
+    m = A.nrows()
+    n = A.ncols()
+
+    Equals = [(0,) + tuple(A[i]) for i in range(m)]
+    Ineqs = [(0,) + tuple(1 if j == i else 0 for j in range(n)) for i in range(n)]
+
+    return Polyhedron(ieqs = Ineqs, eqns = Equals)
+
+def is_dominated(v, w):
+    """Check if v dominates w, i.e., v_i >= w_i for all i."""
+    return all(v[i] >= w[i] for i in range(len(v)))
+
+def minimal_vectors(vector_set):
+    """Find all minimal vectors in the set."""
+    minimal_set = []
+    for v in vector_set:
+        if not any(is_dominated(v, w) for w in vector_set if v != w):
+            minimal_set.append(v)
+    return minimal_set
+
 def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False):
     m = len(b2)
     n = A_B_inv_A_N.ncols() + m
-
-#     nonpos_orthant = Cone(-matrix.identity(n - m))
-
-    # Constraint matrix for mip
     P = Polytope_given_B1_b(A_B_inv_A_N, [], b2)
     PI = P.integral_hull()
 
@@ -211,22 +231,21 @@ def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False):
 
 #     return z_N_list_new
 
-def One_Step_b_hull(A_B_inv_A_N, b1b2, s, delta, bound_N=None, verbose=False):
-    # Compute Delta(A) (largest basis-subdeterminant in abs value.)
+def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False):
     m = len(b1b2)
     n = A_B_inv_A_N.ncols() + m
 
-    # List to store all min-distance achieving z_N's.
-#     nonpos_orthant = Cone(-matrix.identity(n-m))
-
-    # b2_j = (A_B^-1 b)_j for all j except when the entries corr. to b1.
     P = Polytope_given_B1_b(A_B_inv_A_N, s, b1b2)
     PI = P.integral_hull()
 
     if PI.is_empty() == True:
         return []
     else:
-        return [v[m:n] for v in PI.vertices()]
+#         minimal_list = minimal_vectors([v[m:n] for v in PI.vertices()])
+#         nonneg_ray = [tuple(1 if j == i else 0 for j in range(n - m)) for i in range(n - m)]
+#         return [vector(w) for w in Polyhedron(vertices=minimal_list, rays=nonneg_ray, backend='normaliz').vertices()]
+        nonneg_ray = [tuple(1 if j == i else 0 for j in range(n - m)) for i in range(n - m)]
+        return [vector(w) for w in Polyhedron(vertices=[v[m:n] for v in PI.vertices()], rays=nonneg_ray, backend='normaliz').vertices()]
 
 #     PI_N = Polyhedron(vertices=[v[m:n] for v in PI.vertices()], base_ring=QQ, backend='normaliz')
 
@@ -293,11 +312,13 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, delta, bound_N=None, verbose=False):
 #         raise NotImplementedError
 #     return z_N_list_new
 
-def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False):
+def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero_step_verbose=False):
     m = A.nrows()
     n = A.ncols()
     if not Delta:
         Delta = max(abs(x) for x in A.minors(m))
+        if Delta == 1:
+            return (zero_vector(n - m), 0)
 
     # Define A_B given basis index set B
     A_B = A.matrix_from_columns(B)
@@ -311,54 +332,169 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False):
     A_B_inv = A_B.inverse()
     A_B_inv_A_N = A_B_inv * A_N
 
-    z_N_list = []
+## initial version
+#     z_N_list = []
 
     # 0-Step
-#     nonpos_orthant = Cone(-matrix.identity(n-m))
-    for g in UL:
-        # RHS for mip
-        b2 = A_B_inv*g
+#     for g in UL:
+#         # RHS for mip
+#         b2 = A_B_inv*g
 
-        for z_N in Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N = Delta - 1, verbose=verbose):
-            if z_N not in z_N_list:
-                z_N_list.append(z_N)
+#         for z_N in Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N = Delta - 1, verbose=verbose):
+#             if z_N not in z_N_list:
+#                 z_N_list.append(z_N)
 
-    best_z_N = max(z_N_list, key=lambda x: max(A_B_inv_A_N * x))
-    delta = max(A_B_inv_A_N * best_z_N)
-#     if verbose:
+#     best_z_N = max(z_N_list, key=lambda x: max(A_B_inv_A_N * x))
+#     delta = max(A_B_inv_A_N * best_z_N)
+#     if zero_step_verbose:
 #         print(best_z_N)
 #         print(f'Zero Step: delta for A_B_inv_b is {A_B_inv_A_N * best_z_N}')
 #         print(z_N_list)
 
+#     # Iterative process of One-Steps from 1 to m
+#     for t in range(1, m + 1):
+#         S = Subsets([0..(m - 1)], t, submultiset = False).list()
+
+#         L = [i for i in range(int(delta + 1))]
+#         b_s_list = tuple(L for i in range(t))
+
+#         z_N_list_new = []
+#         for s in S:
+#             for g in UL:
+#                 # b2_j = (A_B^-1 b)_j for all j except when the entries corr. to b1.
+#                 b2 = A_B_inv*g
+#                 for b1 in product(*b_s_list):
+#                     b1b2 = copy(b2)
+#                     for i in range(t):
+#                         b1b2[s[i]] += b1[i]
+#                     for z_N in One_Step_b_hull(A_B_inv_A_N, b1b2, s, delta, bound_N = (n - m)*Delta, verbose=verbose):
+#                         if z_N not in z_N_list:
+#                             z_N_list.append(z_N)
+#                             z_N_list_new.append(z_N)
+#         if not z_N_list_new:
+#             continue
+#         best_z_N = max(z_N_list_new, key=lambda x: max(A_B_inv_A_N * x))
+#         delta = max(delta, max(A_B_inv_A_N * best_z_N))
+#         if verbose:
+#             print('New solutions found')
+#             print(t)
+#             print(z_N_list_new)
+#             print(best_z_N)
+#             print(f'One Step: delta for A_B_inv_b is {A_B_inv_A_N * best_z_N}')
+
+    z_N_list = []
+    # Enumerate for each g in UL
+    for g in UL:
+        # RHS for mip
+        b2 = A_B_inv*g
+#         if verbose:
+#             print(b2)
+
+        z_N_list_g = Zero_Step_b_hull(A_B_inv_A_N, b2, verbose=zero_step_verbose)
+
+        z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_g]
+        B_set = Set(range(m))
+        delta = {B_set: [max(delta_bound[i] for delta_bound in z_N_bound) for i in range(m)]}
+
+        if zero_step_verbose:
+            print(A)
+            print(A_B)
+            print(g)
+            print(b2)
+            print(A_B_inv_A_N)
+            print(z_N_bound)
+            print(f'Zero Step: delta for A_B_inv_b is {delta[B_set]}')
+            print(z_N_list_g)
+
+        if max(delta[B_set]) == 0:
+            if verbose:
+                print(A)
+                print(A_B)
+                print(A_B_inv_A_N)
+                print(b2)
+                print(z_N_list_g)
+                print('Zero step is exact')
+            z_N_list = z_N_list + z_N_list_g
+            continue
+
     # Iterative process of One-Steps from 1 to m
-    for t in range(1, m + 1):
-        S = Subsets([0..(m - 1)], t, submultiset = False).list()
+        for t in range(m - 1, -1, -1):
+            if t == 0:
+                s_c = Set()
+                s = B_set
+                b_s_list = []
+                delta[s_c] = zero_vector(m)
+                for i in s:
+                    delta_i = delta[Set([i])]
+                    delta_i_bound = delta_i[i]
+                    for update_i in s_c:
+                        if delta_i[update_i] > delta[s_c][update_i]:
+                            delta[s_c][update_i] = delta_i[update_i]
 
-        L = [i for i in range(int(delta + 1))]
-        b_s_list = tuple(L for i in range(t))
-
-        z_N_list_new = []
-        for s in S:
-            for g in UL:
-                # b2_j = (A_B^-1 b)_j for all j except when the entries corr. to b1.
-                b2 = A_B_inv*g
+                    if delta_i_bound > 1:
+                        b_s_list.append([j for j in range(delta_i_bound)])
+                    else:
+                        b_s_list.append([0])
                 for b1 in product(*b_s_list):
                     b1b2 = copy(b2)
-                    for i in range(t):
+                    for i in range(len(s)):
                         b1b2[s[i]] += b1[i]
-                for z_N in One_Step_b_hull(A_B_inv_A_N, b1b2, s, delta, bound_N = (n - m)*Delta, verbose=verbose):
-                    if z_N not in z_N_list:
-                        z_N_list.append(z_N)
-                        z_N_list_new.append(z_N)
-        if not z_N_list_new:
-            continue
-        best_z_N = max(z_N_list_new, key=lambda x: max(A_B_inv_A_N * x))
-        delta = max(delta, max(A_B_inv_A_N * best_z_N))
-        if verbose:
-            print('New solutions found')
-            print(z_N_list_new)
-            print(best_z_N)
-            print(f'One Step: delta for A_B_inv_b is {A_B_inv_A_N * best_z_N}')
+                    z_N_list_new_b1 = One_Step_b_hull(A_B_inv_A_N, b1b2, s, verbose=verbose)
+                    for z_N in z_N_list_new_b1:
+                        if z_N not in z_N_list_g:
+                            z_N_list_g.append(z_N)
+                if not z_N_list_new_b1:
+                    if verbose:
+                        print('No new solutions')
+                    continue
+                if verbose:
+                    print('New solutions found')
+                    print(s)
+                    print(b2)
+                    print(b1b2)
+                    print(z_N_list_new_b1)
+                    print(f'One Step: delta for A_B_inv_b is {delta[s_c]}')
+
+            else:
+                S_c = Subsets(B_set, t, submultiset = False).list()
+                for s_c in S_c:
+                    s = B_set.difference(s_c)
+                    b_s_list = []
+                    delta[s_c] = zero_vector(m)
+                    for i in s:
+                        delta_i = delta[s_c.union(Set([i]))]
+                        delta_i_bound = delta_i[i]
+                        for update_i in s_c:
+                            if delta_i[update_i] > delta[s_c][update_i]:
+                                delta[s_c][update_i] = delta_i[update_i]
+
+                        if delta_i_bound > 1:
+                            b_s_list.append([j for j in range(delta_i_bound)])
+                        else:
+                            b_s_list.append([0])
+                    for b1 in product(*b_s_list):
+                        b1b2 = copy(b2)
+                        for i in range(len(s)):
+                            b1b2[s[i]] += b1[i]
+                        z_N_list_new_b1 = One_Step_b_hull(A_B_inv_A_N, b1b2, s, verbose=verbose)
+                        for z_N in z_N_list_new_b1:
+                            if z_N not in z_N_list_g:
+                                z_N_list_g.append(z_N)
+                    if not z_N_list_new_b1:
+                        continue
+                    z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1]
+                    for i in s_c:
+                        delta_new_i = max(delta_bound[i] for delta_bound in z_N_bound)
+                        if delta_new_i > delta[s_c][i]:
+                            delta[s_c][i] = delta_new_i
+                    if verbose:
+                        print('New solutions found')
+                        print(s)
+                        print(b2)
+                        print(b1b2)
+                        print(z_N_list_new_b1)
+                        print(f'One Step: delta for A_B_inv_b is {delta[s_c]}')
+        z_N_list = z_N_list + z_N_list_g
 
     best_z_N, best_norm = max([(z_N, proximity_norm(z_N, A_B_inv_A_N)) for z_N in z_N_list], key=lambda x: x[1])
     if candidate_list:
@@ -366,7 +502,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False):
     else:
         return (best_z_N, best_norm)
 
-def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False):
+def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False, zero_step_verbose=False):
     if dictionary:
         big_z_N_list = dict()
     count = 0
@@ -382,7 +518,7 @@ def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False):
                 big_z_N_list[B] = (zero_vector(A.ncols() - A.nrows()), 0)
             continue
         else:
-            z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=verbose)
+            z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=verbose, zero_step_verbose=zero_step_verbose)
             print("Basis #{} out of {} with proximity {}".format(count, total_basis_num, z_N_norm))
             if dictionary:
                 big_z_N_list[B] = (z_N_list, z_N_norm)
@@ -397,7 +533,7 @@ def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False):
         best_norm = max_norm
         return best_norm
 
-def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False):
+def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False, zero_step_verbose=False):
     prox = 0
     count = 0
     result = lattice_polytopes_with_given_dimension_and_delta(m, Delta, False)
@@ -406,7 +542,23 @@ def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False):
         A = matrix(ZZ, [v for v in P.integral_points() if v.norm(1) > 0 and next((x for x in v if x != 0), None) > 0])
         A = A.transpose()
         count = count + 1
-        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose)
+        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose, zero_step_verbose=zero_step_verbose)
+        print("Matrix #{} of {} with proximity bound {}".format(count, total_num, A_prox))
+        if A_prox >= prox:
+            prox = A_prox
+
+    return prox
+
+def Proximity_Given_Dim_and_Delta_new(m, Delta, verbose=False, zero_step_verbose=False):
+    prox = 0
+    count = 0
+    result = delta_classification(m, Delta, 'delta_cone')
+    total_num = len(result)
+    for P in result:
+        A = matrix(ZZ, [v for v in P.integral_points() if v.norm(1) > 0])
+        A = A.transpose()
+        count = count + 1
+        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose, zero_step_verbose=zero_step_verbose)
         print("Matrix #{} of {} with proximity bound {}".format(count, total_num, A_prox))
         if A_prox >= prox:
             prox = A_prox
