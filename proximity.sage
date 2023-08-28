@@ -173,16 +173,58 @@ def minimal_vectors(vector_set):
             minimal_set.append(v)
     return minimal_set
 
-def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False):
+def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False, check_obj_c=False):
     m = len(b2)
     n = A_B_inv_A_N.ncols() + m
     P = Polytope_given_B1_b(A_B_inv_A_N, [], b2)
     PI = P.integral_hull()
 
     if PI.is_empty() == True:
-        return []
-    else:
-        return [v[m:n] for v in PI.vertices()]
+        return []  
+
+    if check_obj_c:
+        nonpos_orthant = Cone(-matrix.identity(n - m))
+        PI_N = Polyhedron(vertices=[v[m:n] for v in PI.vertices()], base_ring=QQ, backend='normaliz')
+        if PI_N.dimension() == 0:
+            if verbose:
+                print('Dimension 0. Single Vertex Case.')
+            return [v.vector() for v in PI_N.vertices()]
+        if PI_N.is_full_dimensional() == False and PI_N.dimension() > 0:
+            if verbose:
+                print('Zero Step Extend needed')
+            P_new = Extend_Polytope_To_Full_Dimension(PI_N)
+        else:
+            if verbose:
+                print('Zero Step Extend unnecessary')
+            P_new = PI_N
+    
+        # If there exists a nonpos_c_N in the cone containing a vertex, return that vertex
+        nonpos_c_N = []
+        for cone in NormalFan(-P_new):
+            cone_nonpos = cone.intersection(nonpos_orthant)
+            if not cone_nonpos.is_full_dimensional():
+                continue
+            rep_ray = sum(vector(list(ray)) for ray in cone_nonpos.rays())
+            if verbose:
+                print('cone_nonpos is full dim. Performing check.')
+                print(f'Representative ray is {rep_ray}.')
+            if rep_ray not in nonpos_c_N:
+                nonpos_c_N.append(rep_ray)
+
+        # Get candidate sols
+        mip, z_N_var = PI_N.to_linear_program(return_variable=True, solver='PPL', base_ring=QQ)
+        candidate_sols = []
+        for bar_c_N in nonpos_c_N:
+            mip.set_objective(sum(bar_c_N[i] * z_N_var[i] for i in range(n - m)))
+            mip.solve()
+            z_N_opt = vector(list(mip.get_values(z_N_var).values()))
+            if z_N_opt not in candidate_sols:
+                candidate_sols.append(z_N_opt)
+        
+        return candidate_sols
+
+    if PI.is_empty() == False:
+        return[v[m:n] for v in PI.vertices()]
 
 #     PI_N = Polyhedron(vertices=[v[m:n] for v in PI.vertices()], base_ring=QQ, backend='normaliz')
 
@@ -231,7 +273,7 @@ def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False):
 
 #     return z_N_list_new
 
-def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False):
+def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj_c=False):
     m = len(b1b2)
     n = A_B_inv_A_N.ncols() + m
 
@@ -240,7 +282,52 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False):
 
     if PI.is_empty() == True:
         return []
-    else:
+
+    if check_obj_c:
+        PI_N = Polyhedron(vertices=[v[m:n] for v in PI.vertices()], base_ring=QQ, backend='normaliz')
+        if PI_N.dimension() == 0:
+            if verbose:
+                print('Dimension 0. Single Vertex Case.')
+            return [v.vector() for v in PI_N.vertices()]
+        else:
+            if PI_N.is_full_dimensional() == False and PI_N.dimension() > 0:
+                if verbose:
+                    print('One Step Extend needed')
+                P_new = Extend_Polytope_To_Full_Dimension(PI_N)
+            else:
+                if verbose:
+                    print('One Step Extend unnecessary')
+                P_new = PI_N
+    
+        # If there exists a nonpos_c_N in the cone containing a vertex, return that vertex
+        nonpos_c_N = []
+        for cone in NormalFan(-P_new):
+            cone_nonpos = cone.intersection(nonpos_orthant)
+            if not cone_nonpos.is_full_dimensional():
+                continue
+            rep_ray = sum(vector(list(ray)) for ray in cone_nonpos.rays())
+            if verbose:
+                print('cone_nonpos is full dim. Performing check.')
+                print(f'Representative ray is {rep_ray}.')
+            if rep_ray not in nonpos_c_N:
+                nonpos_c_N.append(rep_ray)
+
+        # Get candidate sols
+        mip, z_N_var = PI_N.to_linear_program(return_variable=True, solver='PPL', base_ring=QQ)
+        candidate_sols = []
+        for bar_c_N in nonpos_c_N:
+            mip.set_objective(sum(bar_c_N[i] * z_N_var[i] for i in range(n - m)))
+            mip.solve()
+            z_N_opt = vector(list(mip.get_values(z_N_var).values()))
+            if z_N_opt not in candidate_sols:
+                candidate_sols.append(z_N_opt)
+        
+        if verbose:
+            print()
+        
+        return candidate_sols
+
+    if PI.is_empty() == False:
 #         minimal_list = minimal_vectors([v[m:n] for v in PI.vertices()])
 #         nonneg_ray = [tuple(1 if j == i else 0 for j in range(n - m)) for i in range(n - m)]
 #         return [vector(w) for w in Polyhedron(vertices=minimal_list, rays=nonneg_ray, backend='normaliz').vertices()]
@@ -312,7 +399,7 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False):
 #         raise NotImplementedError
 #     return z_N_list_new
 
-def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero_step_verbose=False):
+def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero_step_verbose=False, check_obj_c=False):
     m = A.nrows()
     n = A.ncols()
     if not Delta:
@@ -390,7 +477,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
 #         if verbose:
 #             print(b2)
 
-        z_N_list_g = Zero_Step_b_hull(A_B_inv_A_N, b2, verbose=zero_step_verbose)
+        z_N_list_g = Zero_Step_b_hull(A_B_inv_A_N, b2, verbose=zero_step_verbose, check_obj_c=check_obj_c)
 
         z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_g]
         B_set = Set(range(m))
@@ -439,7 +526,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                     b1b2 = copy(b2)
                     for i in range(len(s)):
                         b1b2[s[i]] += b1[i]
-                    z_N_list_new_b1 = One_Step_b_hull(A_B_inv_A_N, b1b2, s, verbose=verbose)
+                    z_N_list_new_b1 = One_Step_b_hull(A_B_inv_A_N, b1b2, s, verbose=verbose, check_obj_c=check_obj_c)
                     for z_N in z_N_list_new_b1:
                         if z_N not in z_N_list_g:
                             z_N_list_g.append(z_N)
