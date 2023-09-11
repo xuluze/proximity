@@ -597,6 +597,8 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                             if z_N not in z_N_list_g:
                                 z_N_list_g.append(z_N)
                     if not z_N_list_new_b1:
+                        if verbose:
+                            print('No new solutions')
                         continue
                     z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1]
                     for i in s_c:
@@ -635,7 +637,7 @@ def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False, zero_
             continue
         else:
             z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=verbose, zero_step_verbose=zero_step_verbose)
-            print("Basis #{} out of {} with proximity {}".format(count, total_basis_num, z_N_norm))
+            print("Basis #{} out of {} with proximity {} and det {}".format(count, total_basis_num, z_N_norm, abs(A_B.det())))
             if dictionary:
                 big_z_N_list[B] = (z_N_list, z_N_norm)
             else:
@@ -675,7 +677,8 @@ def Proximity_Given_Dim_and_Delta_new(m, Delta, verbose=False, zero_step_verbose
     """
     prox = 0
     count = 0
-    result = delta_classification(m, Delta, 'delta_cone')
+    # result = delta_classification(m, Delta, 'delta_cone')
+    result = lattice_polytopes_with_given_dimension_and_delta(m, Delta, 'delta_cone')
     total_num = len(result)
     for P in result:
         A = matrix(ZZ, [v for v in P.integral_points() if v.norm(1) > 0])
