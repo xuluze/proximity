@@ -174,6 +174,16 @@ def minimal_vectors(vector_set):
     return minimal_set
 
 def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False, check_obj_c=False):
+    r"""
+    Same as One_Step_b_hull with s empty (group relaxation).
+
+    - ``b2`` -- `A_B^{-1} b`
+
+    - ``bound_N`` -- ignored
+
+    - ``check_obj_c`` -- experimental
+
+    """
     m = len(b2)
     n = A_B_inv_A_N.ncols() + m
     P = Polytope_given_B1_b(A_B_inv_A_N, [], b2)
@@ -274,6 +284,17 @@ def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False, check_obj_c=F
 #     return z_N_list_new
 
 def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj_c=False):
+    r"""
+
+    - ``b1b2`` -- `A_B^{-1} b`
+
+    - ``s`` -- set `B_1` of row indices (non-negative integer basic variables in extended Group relaxation)
+
+    - ``bound_N`` -- ignored
+
+    - ``check_obj_c`` -- experimental
+
+    """
     m = len(b1b2)
     n = A_B_inv_A_N.ncols() + m
 
@@ -327,11 +348,14 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj
         
         return candidate_sols
 
-    if PI.is_empty() == False:
+    if not PI.is_empty():
+
+        # Filter out dominated
+
 #         minimal_list = minimal_vectors([v[m:n] for v in PI.vertices()])
 #         nonneg_ray = [tuple(1 if j == i else 0 for j in range(n - m)) for i in range(n - m)]
 #         return [vector(w) for w in Polyhedron(vertices=minimal_list, rays=nonneg_ray, backend='normaliz').vertices()]
-        nonneg_ray = [tuple(1 if j == i else 0 for j in range(n - m)) for i in range(n - m)]
+        nonneg_ray = [tuple(1 if j == i else 0 for j in range(n - m)) for i in range(n - m)]  # nonbasics
         return [vector(w) for w in Polyhedron(vertices=[v[m:n] for v in PI.vertices()], rays=nonneg_ray, backend='normaliz').vertices()]
 
 #     PI_N = Polyhedron(vertices=[v[m:n] for v in PI.vertices()], base_ring=QQ, backend='normaliz')
@@ -400,6 +424,11 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj
 #     return z_N_list_new
 
 def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero_step_verbose=False, check_obj_c=False):
+    r"""
+    - ``A`` -- matrix
+
+    - ``B`` -- indices of columns of `A` forming basis
+    """
     m = A.nrows()
     n = A.ncols()
     if not Delta:
@@ -637,6 +666,13 @@ def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False, zero_step_verbose=Fal
     return prox
 
 def Proximity_Given_Dim_and_Delta_new(m, Delta, verbose=False, zero_step_verbose=False):
+    r"""
+    EXAMPLES::
+
+        sage: Proximity_Given_Dim_and_Delta_new(2, 3, True, True)  # a few seconds
+        ...
+        sage: Proximity_Given_Dim_and_Delta_new(2, 4, True, True)  # not tested (66 seconds, includes 28s integer hull computations)
+    """
     prox = 0
     count = 0
     result = delta_classification(m, Delta, 'delta_cone')
