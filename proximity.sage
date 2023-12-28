@@ -85,9 +85,13 @@ def Unit_Lattice(A, exclude_zero=True):
 
     return(UL)
 
-def proximity_norm(z_N, A_B_inv_A_N):
-#     return z_N.norm(1) + (A_B_inv_A_N*z_N).norm(1)
-    return max([z_N.norm(Infinity), (A_B_inv_A_N*z_N).norm(Infinity)])
+def proximity_norm(z_N, A_B_inv_A_N, norm="inf"):
+    if norm not in ["inf", "1"]:
+        raise ValueError("Not implemented norm", norm)
+    if norm == "inf":
+        return max([z_N.norm(Infinity), (A_B_inv_A_N*z_N).norm(Infinity)])
+    elif norm == "1":
+        return z_N.norm(1) + (A_B_inv_A_N*z_N).norm(1)
 
 def Polytope_given_B1_b(A_B_inv_A_N, s, A_B_inv_b, bound_N=None):
     r"""
@@ -190,7 +194,7 @@ def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False, check_obj_c=F
     PI = P.integral_hull()
 
     if PI.is_empty() == True:
-        return []  
+        return []
 
     if check_obj_c:
         nonpos_orthant = Cone(-matrix.identity(n - m))
@@ -207,7 +211,7 @@ def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False, check_obj_c=F
             if verbose:
                 print('Zero Step Extend unnecessary')
             P_new = PI_N
-    
+
         # If there exists a nonpos_c_N in the cone containing a vertex, return that vertex
         nonpos_c_N = []
         for cone in NormalFan(-P_new):
@@ -230,7 +234,7 @@ def Zero_Step_b_hull(A_B_inv_A_N, b2, bound_N=None, verbose=False, check_obj_c=F
             z_N_opt = vector(list(mip.get_values(z_N_var).values()))
             if z_N_opt not in candidate_sols:
                 candidate_sols.append(z_N_opt)
-        
+
         return candidate_sols
 
     if PI.is_empty() == False:
@@ -319,7 +323,7 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj
                 if verbose:
                     print('One Step Extend unnecessary')
                 P_new = PI_N
-    
+
         # If there exists a nonpos_c_N in the cone containing a vertex, return that vertex
         nonpos_c_N = []
         for cone in NormalFan(-P_new):
@@ -342,10 +346,10 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj
             z_N_opt = vector(list(mip.get_values(z_N_var).values()))
             if z_N_opt not in candidate_sols:
                 candidate_sols.append(z_N_opt)
-        
+
         if verbose:
             print()
-        
+
         return candidate_sols
 
     if not PI.is_empty():
@@ -423,7 +427,7 @@ def One_Step_b_hull(A_B_inv_A_N, b1b2, s, bound_N=None, verbose=False, check_obj
 #         raise NotImplementedError
 #     return z_N_list_new
 
-def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero_step_verbose=False, check_obj_c=False):
+def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero_step_verbose=False, g_verbose=False, check_obj_c=False, norm="inf"):
     r"""
     - ``A`` -- matrix
 
@@ -556,6 +560,10 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                     for i in range(len(s)):
                         b1b2[s[i]] += b1[i]
                     z_N_list_new_b1 = One_Step_b_hull(A_B_inv_A_N, b1b2, s, verbose=verbose, check_obj_c=check_obj_c)
+                    if g_verbose:
+                        print(b1b2 - b2)
+                        print([A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1])
+                        print(z_N_list_new_b1)
                     for z_N in z_N_list_new_b1:
                         if z_N not in z_N_list_g:
                             z_N_list_g.append(z_N)
@@ -593,10 +601,16 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                         for i in range(len(s)):
                             b1b2[s[i]] += b1[i]
                         z_N_list_new_b1 = One_Step_b_hull(A_B_inv_A_N, b1b2, s, verbose=verbose)
+                        if g_verbose:
+                            print(b1b2 - b2)
+                            print([A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1])
+                            print(z_N_list_new_b1)
                         for z_N in z_N_list_new_b1:
                             if z_N not in z_N_list_g:
                                 z_N_list_g.append(z_N)
                     if not z_N_list_new_b1:
+                        if verbose:
+                            print('No new solutions')
                         continue
                     z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1]
                     for i in s_c:
@@ -610,15 +624,18 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                         print(b1b2)
                         print(z_N_list_new_b1)
                         print(f'One Step: delta for A_B_inv_b is {delta[s_c]}')
+        if g_verbose:
+            best_z_N_g, best_norm_g = max([(z_N, proximity_norm(z_N, A_B_inv_A_N, norm=norm)) for z_N in z_N_list_g], key=lambda x: x[1])
+            print("For representation {} with proximity {} for z_N {}".format(g, best_norm_g, best_z_N_g))
         z_N_list = z_N_list + z_N_list_g
 
-    best_z_N, best_norm = max([(z_N, proximity_norm(z_N, A_B_inv_A_N)) for z_N in z_N_list], key=lambda x: x[1])
+    best_z_N, best_norm = max([(z_N, proximity_norm(z_N, A_B_inv_A_N, norm=norm)) for z_N in z_N_list], key=lambda x: x[1])
     if candidate_list:
         return (z_N_list, best_norm)
     else:
         return (best_z_N, best_norm)
 
-def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False, zero_step_verbose=False):
+def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False, zero_step_verbose=False, g_verbose=False, norm="inf"):
     if dictionary:
         big_z_N_list = dict()
     count = 0
@@ -634,8 +651,11 @@ def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False, zero_
                 big_z_N_list[B] = (zero_vector(A.ncols() - A.nrows()), 0)
             continue
         else:
-            z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=verbose, zero_step_verbose=zero_step_verbose)
-            print("Basis #{} out of {} with proximity {}".format(count, total_basis_num, z_N_norm))
+            z_N_list, z_N_norm = All_Steps_b_hull(A, B, Delta=Delta, candidate_list=False, verbose=verbose, zero_step_verbose=zero_step_verbose, g_verbose=g_verbose, norm=norm)
+            if g_verbose:
+                print("Basis #{} out of {} \n {} \n with {}-norm proximity {} and det {}".format(count, total_basis_num, A_B, norm, z_N_norm, abs(A_B.det())))
+            else:
+                print("Basis #{} out of {} with {}-norm proximity {} and det {}".format(count, total_basis_num, norm, z_N_norm, abs(A_B.det())))
             if dictionary:
                 big_z_N_list[B] = (z_N_list, z_N_norm)
             else:
@@ -649,7 +669,7 @@ def Proximity_Given_Matrix(A, Delta=None, dictionary=False, verbose=False, zero_
         best_norm = max_norm
         return best_norm
 
-def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False, zero_step_verbose=False):
+def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False, zero_step_verbose=False, norm="inf"):
     prox = 0
     count = 0
     result = lattice_polytopes_with_given_dimension_and_delta(m, Delta, False)
@@ -658,14 +678,16 @@ def Proximity_Given_Dim_and_Delta(m, Delta, verbose=False, zero_step_verbose=Fal
         A = matrix(ZZ, [v for v in P.integral_points() if v.norm(1) > 0 and next((x for x in v if x != 0), None) > 0])
         A = A.transpose()
         count = count + 1
-        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose, zero_step_verbose=zero_step_verbose)
+        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose, zero_step_verbose=zero_step_verbose,
+                                        norm=norm)
         print("Matrix #{} of {} with proximity bound {}".format(count, total_num, A_prox))
         if A_prox >= prox:
             prox = A_prox
 
     return prox
 
-def Proximity_Given_Dim_and_Delta_new(m, Delta, verbose=False, zero_step_verbose=False):
+def Proximity_Given_Dim_and_Delta_new(m, Delta, verbose=False, zero_step_verbose=False,
+                                      g_verbose=False, norm="inf"):
     r"""
     EXAMPLES::
 
@@ -675,13 +697,15 @@ def Proximity_Given_Dim_and_Delta_new(m, Delta, verbose=False, zero_step_verbose
     """
     prox = 0
     count = 0
-    result = delta_classification(m, Delta, 'delta_cone')
+    # result = delta_classification(m, Delta, 'delta_cone')
+    result = lattice_polytopes_with_given_dimension_and_delta(m, Delta, 'delta_cone')
     total_num = len(result)
     for P in result:
         A = matrix(ZZ, [v for v in P.integral_points() if v.norm(1) > 0])
         A = A.transpose()
         count = count + 1
-        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose, zero_step_verbose=zero_step_verbose)
+        A_prox = Proximity_Given_Matrix(A, Delta, verbose=verbose, zero_step_verbose=zero_step_verbose,
+                                        g_verbose=g_verbose, norm=norm)
         print("Matrix #{} of {} with proximity bound {}".format(count, total_num, A_prox))
         if A_prox >= prox:
             prox = A_prox
