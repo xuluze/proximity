@@ -555,6 +555,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                         b_s_list.append([j for j in range(delta_i_bound)])
                     else:
                         b_s_list.append([0])
+                z_N_list_new_b1_all = []
                 for b1 in product(*b_s_list):
                     b1b2 = copy(b2)
                     for i in range(len(s)):
@@ -567,7 +568,9 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                     for z_N in z_N_list_new_b1:
                         if z_N not in z_N_list_g:
                             z_N_list_g.append(z_N)
-                if not z_N_list_new_b1:
+                        if z_N not in z_N_list_new_b1_all:
+                            z_N_list_new_b1_all.append(z_N)
+                if not z_N_list_new_b1_all:
                     if verbose:
                         print('No new solutions')
                     continue
@@ -576,7 +579,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                     print(s)
                     print(b2)
                     print(b1b2)
-                    print(z_N_list_new_b1)
+                    print(z_N_list_new_b1_all)
                     print(f'One Step: delta for A_B_inv_b is {delta[s_c]}')
 
             else:
@@ -596,6 +599,7 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                             b_s_list.append([j for j in range(delta_i_bound)])
                         else:
                             b_s_list.append([0])
+                    z_N_list_new_b1_all = []
                     for b1 in product(*b_s_list):
                         b1b2 = copy(b2)
                         for i in range(len(s)):
@@ -608,11 +612,13 @@ def All_Steps_b_hull(A, B, Delta=None, candidate_list=False, verbose=False, zero
                         for z_N in z_N_list_new_b1:
                             if z_N not in z_N_list_g:
                                 z_N_list_g.append(z_N)
-                    if not z_N_list_new_b1:
+                            if z_N not in z_N_list_new_b1_all:
+                                z_N_list_new_b1_all.append(z_N)
+                    if not z_N_list_new_b1_all:
                         if verbose:
                             print('No new solutions')
                         continue
-                    z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1]
+                    z_N_bound = [A_B_inv_A_N * z_N - b2 for z_N in z_N_list_new_b1_all]
                     for i in s_c:
                         delta_new_i = max(delta_bound[i] for delta_bound in z_N_bound)
                         if delta_new_i > delta[s_c][i]:
