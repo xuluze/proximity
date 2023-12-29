@@ -86,12 +86,14 @@ def Unit_Lattice(A, exclude_zero=True):
     return(UL)
 
 def proximity_norm(z_N, A_B_inv_A_N, norm="inf"):
-    if norm not in ["inf", "1"]:
+    if norm not in ["inf", "1", "z_N"]:
         raise ValueError("Not implemented norm", norm)
     if norm == "inf":
         return max([z_N.norm(Infinity), (A_B_inv_A_N*z_N).norm(Infinity)])
     elif norm == "1":
         return z_N.norm(1) + (A_B_inv_A_N*z_N).norm(1)
+    elif norm == "z_N":
+        return z_N.norm(1)
 
 def Polytope_given_B1_b(A_B_inv_A_N, s, A_B_inv_b, bound_N=None):
     r"""
