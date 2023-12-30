@@ -5,8 +5,6 @@
 # https://github.com/christopherborger/mixed_volume_classification/blob/master/volume_classification.sage
 #########################################################################################################
 
-load("polytopes.sage")
-
 import functools
 import itertools
 import logging
