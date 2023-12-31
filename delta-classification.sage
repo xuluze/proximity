@@ -1,7 +1,10 @@
 # needs https://github.com/sagemath/sage/pull/36031
 
 #########################################################################################################
-# the code below is an adaptation of the code for mixed volume classification by Christopher Borger
+# the code below is an adaptation of the code for delta-modular matrices classification
+# by Matthias Schymura and Gennadiy Averkov
+# https://github.com/mschymura/delta-classification
+# which is an adaptation of the code for mixed volume classification by Christopher Borger
 # https://github.com/christopherborger/mixed_volume_classification/blob/master/volume_classification.sage
 #########################################################################################################
 
